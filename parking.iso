@@ -6,10 +6,10 @@
 #include <WiFiUdp.h>
  
 
-#define FIREBASE_HOST "park-x-4485e-default-rtdb.firebaseio.com"  
-#define FIREBASE_AUTH "AIzaSyBa1HCSO_DNThgJ2_vkucn2iGGomZPlPUI"  
-#define WIFI_SSID "Kishorsakthi"  
-#define WIFI_PASSWORD "Honor4xx"  
+#define FIREBASE_HOST "YOUR_FIREBASE_REALTIME_DB_LINK_EXCEPT_HTTPS://"  
+#define FIREBASE_AUTH "FIREBASE_AUTH_FROM_YOUR_PACKAGE.JSON"  
+#define WIFI_SSID "WIFI_NAME"  
+#define WIFI_PASSWORD "WIFI_PASSWORD"  
 #define aaa D0
 
 const long utcOffsetInSeconds = 3600;
