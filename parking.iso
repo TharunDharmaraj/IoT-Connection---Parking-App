@@ -1,0 +1,117 @@
+#include <ESP8266WiFi.h>
+#include <FirebaseArduino.h>
+#include <SPI.h>
+#include <MFRC522.h>
+#include <NTPClient.h>
+#include <WiFiUdp.h>
+ 
+
+#define FIREBASE_HOST "park-x-4485e-default-rtdb.firebaseio.com"  
+#define FIREBASE_AUTH "AIzaSyBa1HCSO_DNThgJ2_vkucn2iGGomZPlPUI"  
+#define WIFI_SSID "Kishorsakthi"  
+#define WIFI_PASSWORD "Honor4xx"  
+#define aaa D0
+
+const long utcOffsetInSeconds = 3600;
+constexpr uint8_t RST_PIN = D3; 
+constexpr uint8_t SS_PIN = D4;  
+
+WiFiUDP ntpUDP;
+String weekDays[7]={"Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"};
+String months[12]={"January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"};
+NTPClient timeClient(ntpUDP, "pool.ntp.org", utcOffsetInSeconds);
+
+
+MFRC522 rfid(SS_PIN, RST_PIN); 
+MFRC522::MIFARE_Key key;
+
+int count = 0; 
+bool canCheck = 0;
+bool s1;
+String tag;
+
+void setup() {
+  Serial.begin(9600);
+
+  pinMode(aaa,INPUT);
+  SPI.begin(); 
+  rfid.PCD_Init();
+
+  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+  while (WiFi.status() != WL_CONNECTED)
+  {
+     delay(500);
+     Serial.print(".");
+  }
+  
+  Serial.println("WiFi connected");
+  Serial.println(WiFi.localIP());
+
+  Firebase.begin(FIREBASE_HOST, FIREBASE_AUTH);
+  Serial.println("Firebase connected");
+
+  timeClient.begin();
+  timeClient.setTimeOffset(0);
+}
+
+void loop() {
+     
+    if ( ! rfid.PICC_IsNewCardPresent())
+      return;
+
+    if (rfid.PICC_ReadCardSerial()) 
+    {
+      tag = "";
+      for (byte i = 0; i < 4; i++) 
+      {
+        tag += rfid.uid.uidByte[i];
+      }
+      
+      timeClient.update();
+      time_t epochTime = timeClient.getEpochTime();
+      String formattedTime = timeClient.getFormattedTime();
+      struct tm *ptm = gmtime ((time_t *)&epochTime); 
+      int monthDay = ptm->tm_mday;
+      int currentMonth = ptm->tm_mon+1;
+      String currentMonthName = months[currentMonth-1];
+      int currentYear = ptm->tm_year+1900;
+      String currentDate = String(monthDay) + " " + String(currentMonth) + " " + String(currentYear);
+
+      if(count == 0)
+      {
+          Firebase.setString(tag + "/InTime", formattedTime +" " +  currentDate) ; 
+          count = 1;     
+          Serial.println("InTime :  " + formattedTime +" " +  currentDate);    
+      }
+      else if(count == 1)
+      {
+          //set OutTime
+          Firebase.setString(tag + "/OutTime", formattedTime +" " +  currentDate) ; 
+          Firebase.setString(tag + "/slot", "0"); 
+          canCheck = 0 ;
+          count = 0;
+          Serial.println("OutTime :  " + formattedTime +" " +  currentDate);    
+      }    
+        
+      rfid.PICC_HaltA();
+      rfid.PCD_StopCrypto1();
+    } 
+
+    if(count == 1 && canCheck == 0)
+    {
+        s1=digitalRead(aaa);
+        if(s1 == 0 )  
+        {  
+          Firebase.setString(tag + "/slot", "1");
+          canCheck == 1;
+          Serial.println("Object Present");    
+        }  
+    }
+
+    if (Firebase.failed()) 
+    {  
+        Serial.print("setting /number failed:");  
+        Serial.println(Firebase.error());    
+        return;  
+    }  
+}
